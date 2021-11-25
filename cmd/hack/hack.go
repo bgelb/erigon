@@ -2192,7 +2192,7 @@ func reducedict(name string, segmentFileName string) error {
 	wg.Wait()
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	log.Info("Done", "input", common.StorageSize(inputSize.Load()), "output", common.StorageSize(outputSize.Load()), "alloc", common.StorageSize(m.Alloc), "sys", common.StorageSize(m.Sys))
+	log.Info("[Compression] done", "input", common.StorageSize(inputSize.Load()), "output", common.StorageSize(outputSize.Load()), "alloc", common.StorageSize(m.Alloc), "sys", common.StorageSize(m.Sys))
 	posMap := make(map[uint64]uint64)
 	for _, m := range posMaps {
 		for l, c := range m {

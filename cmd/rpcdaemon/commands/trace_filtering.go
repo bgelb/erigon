@@ -957,7 +957,7 @@ func (api *TraceAPIImpl) callManyTransactions(ctx context.Context, dbtx kv.Tx, t
 		BlockNumber:      &parentNo,
 		BlockHash:        &parentHash,
 		RequireCanonical: true,
-	}, header, false /* gasBailout */, txIndex)
+	}, header, false /* gasBailout */, txIndex, false /* simNextBlock */)
 
 	if cmErr != nil {
 		return nil, cmErr

@@ -59,6 +59,7 @@ type TraceCallParam struct {
 // TraceCallResult is the response to `trace_call` method
 type TraceCallResult struct {
 	Output          hexutil.Bytes                           `json:"output"`
+	UsedGas         hexutil.Uint64                       `json:"gasUsed"`
 	StateDiff       map[libcommon.Address]*StateDiffAccount `json:"stateDiff"`
 	Trace           []*ParityTrace                          `json:"trace"`
 	VmTrace         *VmTrace                                `json:"vmTrace"`
@@ -791,6 +792,7 @@ func (api *TraceAPIImpl) ReplayTransaction(ctx context.Context, txHash libcommon
 		// We're only looking for a specific transaction
 		if txno == int(txnIndex) {
 			result.Output = trace.Output
+			result.UsedGas = trace.UsedGas
 			if traceTypeTrace {
 				result.Trace = trace.Trace
 			}
@@ -859,6 +861,7 @@ func (api *TraceAPIImpl) ReplayBlockTransactions(ctx context.Context, blockNrOrH
 	for i, trace := range traces {
 		tr := &TraceCallResult{}
 		tr.Output = trace.Output
+		tr.UsedGas = trace.UsedGas
 		if traceTypeTrace {
 			tr.Trace = trace.Trace
 		} else {
@@ -997,6 +1000,7 @@ func (api *TraceAPIImpl) Call(ctx context.Context, args TraceCallParam, traceTyp
 		return nil, err
 	}
 	traceResult.Output = common.CopyBytes(execResult.ReturnData)
+	traceResult.UsedGas = hexutil.Uint64(execResult.UsedGas)
 	if traceTypeStateDiff {
 		sdMap := make(map[libcommon.Address]*StateDiffAccount)
 		traceResult.StateDiff = sdMap
@@ -1230,6 +1234,7 @@ func (api *TraceAPIImpl) doCallMany(ctx context.Context, dbtx kv.Tx, msgs []type
 			return nil, fmt.Errorf("first run for txIndex %d error: %w", txIndex, err)
 		}
 		traceResult.Output = common.CopyBytes(execResult.ReturnData)
+		traceResult.UsedGas = hexutil.Uint64(execResult.UsedGas)
 		if traceTypeStateDiff {
 			initialIbs := state.New(cloneReader)
 			sdMap := make(map[libcommon.Address]*StateDiffAccount)

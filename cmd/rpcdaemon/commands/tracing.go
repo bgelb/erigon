@@ -121,6 +121,10 @@ func (api *PrivateDebugAPIImpl) TraceCall(ctx context.Context, args ethapi.CallA
 		contractHasTEVM = ethdb.GetHasTEVM(dbtx)
 	}
 	blockCtx, txCtx := transactions.GetEvmContext(msg, header, blockNrOrHash.RequireCanonical, dbtx, contractHasTEVM)
+
+	// Add a small delta to timestamp, to ensure that some nonzero time has elapsed since parent block
+	blockCtx.Time += 1
+
 	// Trace the transaction and return
 	return transactions.TraceTx(ctx, msg, blockCtx, txCtx, ibs, config, chainConfig, stream)
 }

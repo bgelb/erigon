@@ -942,6 +942,11 @@ func (api *TraceAPIImpl) Call(ctx context.Context, args TraceCallParam, traceTyp
 	blockCtx.GasLimit = math.MaxUint64
 	blockCtx.MaxGasLimit = true
 
+	// Increment the BlockNumber and Time values to simulate the transaction of
+	// interest in the next (N+1) block instead of the current (already mined) one
+	blockCtx.Time += 12
+	blockCtx.BlockNumber += 1
+
 	evm := vm.NewEVM(blockCtx, txCtx, ibs, chainConfig, vm.Config{Debug: traceTypeTrace, Tracer: &ot})
 
 	// Wait for the context to be done and cancel the evm. Even if the
@@ -1060,11 +1065,11 @@ func (api *TraceAPIImpl) CallMany(ctx context.Context, calls json.RawMessage, pa
 			return nil, fmt.Errorf("convert callParam to msg: %w", err)
 		}
 	}
-	return api.doCallMany(ctx, dbtx, msgs, callParams, parentNrOrHash, nil, true /* gasBailout */, -1 /* all tx indices */)
+	return api.doCallMany(ctx, dbtx, msgs, callParams, parentNrOrHash, nil, true /* gasBailout */, -1 /* all tx indices */, true /* simNextBlock */)
 }
 
 func (api *TraceAPIImpl) doCallMany(ctx context.Context, dbtx kv.Tx, msgs []types.Message, callParams []TraceCallParam, parentNrOrHash *rpc.BlockNumberOrHash, header *types.Header,
-	gasBailout bool, txIndexNeeded int) ([]*TraceCallResult, error) {
+	gasBailout bool, txIndexNeeded int, simNextBlock bool) ([]*TraceCallResult, error) {
 	chainConfig, err := api.chainConfig(dbtx)
 	if err != nil {
 		return nil, err
@@ -1157,6 +1162,13 @@ func (api *TraceAPIImpl) doCallMany(ctx context.Context, dbtx kv.Tx, msgs []type
 		// Get a new instance of the EVM.
 		blockCtx := transactions.NewEVMBlockContext(engine, header, parentNrOrHash.RequireCanonical, dbtx, api._blockReader)
 		txCtx := core.NewEVMTxContext(msg)
+
+		if simNextBlock {
+			// Increment the BlockNumber and Time values to simulate the transaction of
+			// interest in the next (N+1) block instead of the current (already mined) one
+			blockCtx.Time += 12
+			blockCtx.BlockNumber += 1
+		}
 
 		if useParent {
 			blockCtx.GasLimit = math.MaxUint64

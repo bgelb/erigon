@@ -353,6 +353,12 @@ func (api *PrivateDebugAPIImpl) TraceCall(ctx context.Context, args ethapi.CallA
 	blockCtx := transactions.NewEVMBlockContext(engine, header, blockNrOrHash.RequireCanonical, dbtx, api._blockReader)
 	txCtx := core.NewEVMTxContext(msg)
 	blockCtx.L1CostFunc = types.NewL1CostFunc(chainConfig, ibs)
+
+	// Increment the BlockNumber and Time values to simulate the transaction of
+	// interest in the next (N+1) block instead of the current (already mined) one
+	blockCtx.Time += 12
+	blockCtx.BlockNumber += 1
+
 	// Trace the transaction and return
 	return transactions.TraceTx(ctx, msg, blockCtx, txCtx, ibs, config, chainConfig, stream, api.evmCallTimeout)
 }

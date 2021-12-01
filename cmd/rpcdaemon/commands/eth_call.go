@@ -591,6 +591,11 @@ func (api *APIImpl) CreateAccessList(ctx context.Context, args ethapi2.CallArgs,
 		txCtx := core.NewEVMTxContext(msg)
 		blockCtx.L1CostFunc = types.NewL1CostFunc(chainConfig, state)
 
+		// Increment the BlockNumber and Time values to simulate the transaction of
+		// interest in the next (N+1) block instead of the current (already mined) one
+		blockCtx.Time += 12
+		blockCtx.BlockNumber += 1
+
 		evm := vm.NewEVM(blockCtx, txCtx, state, chainConfig, config)
 		gp := new(core.GasPool).AddGas(msg.Gas()).AddDataGas(msg.DataGas())
 		res, err := core.ApplyMessage(evm, msg, gp, true /* refunds */, false /* gasBailout */)

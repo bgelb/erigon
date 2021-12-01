@@ -938,6 +938,9 @@ func (api *TraceAPIImpl) Call(ctx context.Context, args TraceCallParam, traceTyp
 	blockCtx.GasLimit = math.MaxUint64
 	blockCtx.MaxGasLimit = true
 
+	// Add a small delta to timestamp, to ensure that some nonzero time has elapsed since parent block
+	blockCtx.Time += 1
+
 	evm := vm.NewEVM(blockCtx, txCtx, ibs, chainConfig, vm.Config{Debug: traceTypeTrace, Tracer: &ot})
 
 	// Wait for the context to be done and cancel the evm. Even if the
@@ -1150,6 +1153,10 @@ func (api *TraceAPIImpl) doCallMany(ctx context.Context, dbtx kv.Tx, msgs []type
 
 		// Get a new instance of the EVM.
 		blockCtx, txCtx := transactions.GetEvmContext(msg, header, parentNrOrHash.RequireCanonical, dbtx, contractHasTEVM)
+
+		// Add a small delta to timestamp, to ensure that some nonzero time has elapsed since parent block
+		blockCtx.Time += 1
+
 		if useParent {
 			blockCtx.GasLimit = math.MaxUint64
 			blockCtx.MaxGasLimit = true

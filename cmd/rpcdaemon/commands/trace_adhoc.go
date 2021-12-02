@@ -23,6 +23,7 @@ import (
 	"github.com/ledgerwatch/erigon/core/types/accounts"
 	"github.com/ledgerwatch/erigon/core/vm"
 	"github.com/ledgerwatch/erigon/core/vm/stack"
+	"github.com/ledgerwatch/erigon/eth/tracers/logger"
 	"github.com/ledgerwatch/erigon/ethdb"
 	"github.com/ledgerwatch/erigon/rpc"
 	"github.com/ledgerwatch/erigon/turbo/rpchelper"
@@ -34,16 +35,17 @@ import (
 const callTimeout = 5 * time.Minute
 
 const (
-	CALL               = "call"
-	CALLCODE           = "callcode"
-	DELEGATECALL       = "delegatecall"
-	STATICCALL         = "staticcall"
-	CREATE             = "create"
-	SUICIDE            = "suicide"
-	REWARD             = "reward"
-	TraceTypeTrace     = "trace"
-	TraceTypeStateDiff = "stateDiff"
-	TraceTypeVmTrace   = "vmTrace"
+	CALL                = "call"
+	CALLCODE            = "callcode"
+	DELEGATECALL        = "delegatecall"
+	STATICCALL          = "staticcall"
+	CREATE              = "create"
+	SUICIDE             = "suicide"
+	REWARD              = "reward"
+	TraceTypeTrace      = "trace"
+	TraceTypeStateDiff  = "stateDiff"
+	TraceTypeVmTrace    = "vmTrace"
+	TraceTypeAccessList = "accessList"
 )
 
 // TraceCallParam (see SendTxArgs -- this allows optional prams plus don't use MixedcaseAddress
@@ -68,6 +70,7 @@ type TraceCallResult struct {
 	StateDiff       map[common.Address]*StateDiffAccount `json:"stateDiff"`
 	Trace           []*ParityTrace                       `json:"trace"`
 	VmTrace         *VmTrace                             `json:"vmTrace"`
+	AccessList      types.AccessList                     `json:"accessList"`
 	TransactionHash *common.Hash                         `json:"transactionHash,omitempty"`
 }
 
@@ -239,6 +242,7 @@ type OeTracer struct {
 	lastOffStack *VmTraceOp
 	vmOpStack    []*VmTraceOp // Stack of vmTrace operations as call depth increases
 	idx          []string     // Prefix for the "idx" inside operations, for easier navigation
+	al           *logger.AccessListTracer
 }
 
 func (ot *OeTracer) CaptureStart(depth int, from common.Address, to common.Address, precompile bool, create bool, calltype vm.CallType, input []byte, gas uint64, value *big.Int, code []byte) error {
@@ -415,6 +419,9 @@ func (ot *OeTracer) CaptureEnd(depth int, output []byte, startGas, endGas uint64
 }
 
 func (ot *OeTracer) CaptureState(env *vm.EVM, pc uint64, op vm.OpCode, gas, cost uint64, memory *vm.Memory, st *stack.Stack, rData []byte, contract *vm.Contract, opDepth int, err error) error {
+	if ot.al != nil {
+		ot.al.CaptureState(env, pc, op, gas, cost, memory, st, rData, contract, opDepth, err)
+	}
 	if ot.r.VmTrace != nil {
 		var vmTrace *VmTrace
 		if len(ot.vmOpStack) > 0 {
@@ -896,7 +903,7 @@ func (api *TraceAPIImpl) Call(ctx context.Context, args TraceCallParam, traceTyp
 	defer cancel()
 
 	traceResult := &TraceCallResult{Trace: []*ParityTrace{}}
-	var traceTypeTrace, traceTypeStateDiff, traceTypeVmTrace bool
+	var traceTypeTrace, traceTypeStateDiff, traceTypeVmTrace, traceTypeAccessList bool
 	for _, traceType := range traceTypes {
 		switch traceType {
 		case TraceTypeTrace:
@@ -905,6 +912,8 @@ func (api *TraceAPIImpl) Call(ctx context.Context, args TraceCallParam, traceTyp
 			traceTypeStateDiff = true
 		case TraceTypeVmTrace:
 			traceTypeVmTrace = true
+		case TraceTypeAccessList:
+			traceTypeAccessList = true
 		default:
 			return nil, fmt.Errorf("unrecognized trace type: %s", traceType)
 		}
@@ -914,9 +923,12 @@ func (api *TraceAPIImpl) Call(ctx context.Context, args TraceCallParam, traceTyp
 	}
 	var ot OeTracer
 	ot.compat = api.compatibility
-	if traceTypeTrace || traceTypeVmTrace {
+	if traceTypeTrace || traceTypeVmTrace || traceTypeAccessList {
 		ot.r = traceResult
 		ot.traceAddr = []int{}
+	}
+	if traceTypeAccessList {
+		ot.al = logger.NewAccessListTracer(nil, *args.From, *args.To, vm.ActivePrecompiles(chainConfig.Rules(blockNumber)))
 	}
 
 	// Get a new instance of the EVM.
@@ -964,6 +976,9 @@ func (api *TraceAPIImpl) Call(ctx context.Context, args TraceCallParam, traceTyp
 	}
 	traceResult.Output = common.CopyBytes(execResult.ReturnData)
 	traceResult.UsedGas = hexutil.Uint64(execResult.UsedGas)
+	if traceTypeAccessList {
+		ot.r.AccessList = ot.al.AccessList()
+	}
 	if traceTypeStateDiff {
 		sdMap := make(map[common.Address]*StateDiffAccount)
 		traceResult.StateDiff = sdMap
@@ -1127,7 +1142,7 @@ func (api *TraceAPIImpl) doCallMany(ctx context.Context, dbtx kv.Tx, msgs []type
 			return nil, err
 		}
 		traceResult := &TraceCallResult{Trace: []*ParityTrace{}}
-		var traceTypeTrace, traceTypeStateDiff, traceTypeVmTrace bool
+		var traceTypeTrace, traceTypeStateDiff, traceTypeVmTrace, traceTypeAccessList bool
 		args := callParams[txIndex]
 		for _, traceType := range args.traceTypes {
 			switch traceType {
@@ -1137,13 +1152,15 @@ func (api *TraceAPIImpl) doCallMany(ctx context.Context, dbtx kv.Tx, msgs []type
 				traceTypeStateDiff = true
 			case TraceTypeVmTrace:
 				traceTypeVmTrace = true
+			case TraceTypeAccessList:
+				traceTypeAccessList = true
 			default:
 				return nil, fmt.Errorf("unrecognized trace type: %s", traceType)
 			}
 		}
 		vmConfig := vm.Config{}
-		if (traceTypeTrace && (txIndexNeeded == -1 || txIndex == txIndexNeeded)) || traceTypeVmTrace {
-			var ot OeTracer
+		var ot OeTracer
+		if (traceTypeTrace && (txIndexNeeded == -1 || txIndex == txIndexNeeded)) || traceTypeVmTrace || traceTypeAccessList {
 			ot.compat = api.compatibility
 			ot.r = traceResult
 			ot.idx = []string{fmt.Sprintf("%d-", txIndex)}
@@ -1152,6 +1169,9 @@ func (api *TraceAPIImpl) doCallMany(ctx context.Context, dbtx kv.Tx, msgs []type
 			}
 			if traceTypeVmTrace {
 				traceResult.VmTrace = &VmTrace{Ops: []*VmTraceOp{}}
+			}
+			if traceTypeAccessList {
+				ot.al = logger.NewAccessListTracer(nil, *args.From, *args.To, vm.ActivePrecompiles(chainConfig.Rules(blockNumber)))
 			}
 			vmConfig.Debug = true
 			vmConfig.Tracer = &ot
@@ -1195,6 +1215,9 @@ func (api *TraceAPIImpl) doCallMany(ctx context.Context, dbtx kv.Tx, msgs []type
 		}
 		traceResult.Output = common.CopyBytes(execResult.ReturnData)
 		traceResult.UsedGas = hexutil.Uint64(execResult.UsedGas)
+		if traceTypeAccessList {
+			ot.r.AccessList = ot.al.AccessList()
+		}
 		if traceTypeStateDiff {
 			initialIbs := state.New(cloneReader)
 			sdMap := make(map[common.Address]*StateDiffAccount)

@@ -122,8 +122,10 @@ func (api *PrivateDebugAPIImpl) TraceCall(ctx context.Context, args ethapi.CallA
 	}
 	blockCtx, txCtx := transactions.GetEvmContext(msg, header, blockNrOrHash.RequireCanonical, dbtx, contractHasTEVM)
 
-	// Add a small delta to timestamp, to ensure that some nonzero time has elapsed since parent block
+	// Increment the BlockNumber and Time values to simulate the transaction of
+	// interest in the next (N+1) block instead of the current (already mined) one
 	blockCtx.Time += 1
+	blockCtx.BlockNumber += 1
 
 	// Trace the transaction and return
 	return transactions.TraceTx(ctx, msg, blockCtx, txCtx, ibs, config, chainConfig, stream)

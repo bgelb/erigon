@@ -63,7 +63,8 @@ type TraceCallParam struct {
 // TraceCallResult is the response to `trace_call` method
 type TraceCallResult struct {
 	Output          hexutility.Bytes                        `json:"output"`
-	UsedGas         hexutil.Uint64                       `json:"gasUsed"`
+	UsedGas         hexutil.Uint64                          `json:"gasUsed"`
+	Error           string                                  `json:"error,omitempty"`
 	StateDiff       map[libcommon.Address]*StateDiffAccount `json:"stateDiff"`
 	Trace           []*ParityTrace                          `json:"trace"`
 	VmTrace         *VmTrace                                `json:"vmTrace"`
@@ -787,6 +788,7 @@ func (api *TraceAPIImpl) ReplayTransaction(ctx context.Context, txHash libcommon
 		if txno == int(txnIndex) {
 			result.Output = trace.Output
 			result.UsedGas = trace.UsedGas
+			result.Error = trace.Error
 			if traceTypeTrace {
 				result.Trace = trace.Trace
 			}
@@ -856,6 +858,7 @@ func (api *TraceAPIImpl) ReplayBlockTransactions(ctx context.Context, blockNrOrH
 		tr := &TraceCallResult{}
 		tr.Output = trace.Output
 		tr.UsedGas = trace.UsedGas
+		tr.Error = trace.Error
 		if traceTypeTrace {
 			tr.Trace = trace.Trace
 		} else {
@@ -995,6 +998,11 @@ func (api *TraceAPIImpl) Call(ctx context.Context, args TraceCallParam, traceTyp
 	}
 	traceResult.Output = common.CopyBytes(execResult.ReturnData)
 	traceResult.UsedGas = hexutil.Uint64(execResult.UsedGas)
+	var errString string
+	if execResult.Err != nil {
+		errString = execResult.Err.Error()
+	}
+	traceResult.Error = errString
 	if traceTypeStateDiff {
 		sdMap := make(map[libcommon.Address]*StateDiffAccount)
 		traceResult.StateDiff = sdMap
@@ -1231,6 +1239,11 @@ func (api *TraceAPIImpl) doCallMany(ctx context.Context, dbtx kv.Tx, msgs []type
 		}
 		traceResult.Output = common.CopyBytes(execResult.ReturnData)
 		traceResult.UsedGas = hexutil.Uint64(execResult.UsedGas)
+		var errString string
+		if execResult.Err != nil {
+			errString = execResult.Err.Error()
+		}
+		traceResult.Error = errString
 		if traceTypeStateDiff {
 			initialIbs := state.New(cloneReader)
 			sdMap := make(map[libcommon.Address]*StateDiffAccount)

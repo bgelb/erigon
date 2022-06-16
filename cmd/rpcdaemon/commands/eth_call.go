@@ -113,13 +113,7 @@ func HeaderByNumberOrHash(ctx context.Context, tx kv.Tx, blockNrOrHash rpc.Block
 }
 
 // EstimateGas implements eth_estimateGas. Returns an estimate of how much gas is necessary to allow the transaction to complete. The transaction will not be added to the blockchain.
-func (api *APIImpl) EstimateGas(ctx context.Context, argsOrNil *ethapi.CallArgs, blockNrOrHash *rpc.BlockNumberOrHash) (hexutil.Uint64, error) {
-	var args ethapi.CallArgs
-	// if we actually get CallArgs here, we use them
-	if argsOrNil != nil {
-		args = *argsOrNil
-	}
-
+func (api *APIImpl) EstimateGas(ctx context.Context, args ethapi.CallArgs, blockNrOrHash *rpc.BlockNumberOrHash) (hexutil.Uint64, error) {
 	bNrOrHash := rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber)
 	if blockNrOrHash != nil {
 		bNrOrHash = *blockNrOrHash

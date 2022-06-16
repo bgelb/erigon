@@ -71,8 +71,6 @@ jobs:
   docker:
     runs-on: ubuntu-18.04
     steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-          fetch-depth: 0 # fetch git tags for "git describe"
-      - run: make docker
+      - uses: actions/checkout@v2
+      - run: git submodule update --init --recursive --force
+      - run: docker build .

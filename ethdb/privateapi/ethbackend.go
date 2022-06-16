@@ -2,8 +2,6 @@ package privateapi
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
 	"github.com/ledgerwatch/erigon-lib/gointerfaces"
 	"github.com/ledgerwatch/erigon-lib/gointerfaces/remote"
@@ -18,15 +16,14 @@ import (
 // 2.0.0 - move all mining-related methods to 'txpool/mining' server
 // 2.1.0 - add NetPeerCount function
 // 2.2.0 - add NodesInfo function
-// 2.3.0 - add Subscribe to logs
-var EthBackendAPIVersion = &types2.VersionReply{Major: 2, Minor: 3, Patch: 0}
+var EthBackendAPIVersion = &types2.VersionReply{Major: 2, Minor: 2, Patch: 0}
 
 type EthBackendServer struct {
 	remote.UnimplementedETHBACKENDServer // must be embedded to have forward compatible implementations.
-	ctx                                  context.Context
-	eth                                  EthBackend
-	events                               *Events
-	logsFilter                           *LogsFilterAggregator
+
+	ctx    context.Context
+	eth    EthBackend
+	events *Events
 }
 
 type EthBackend interface {
@@ -37,33 +34,7 @@ type EthBackend interface {
 }
 
 func NewEthBackendServer(ctx context.Context, eth EthBackend, events *Events) *EthBackendServer {
-	s := &EthBackendServer{ctx: ctx, eth: eth, events: events, logsFilter: NewLogsFilterAggregator(events)}
-
-	ch, clean := s.events.AddLogsSubscription()
-	go func() {
-		var err error
-		defer clean()
-		log.Info("new subscription to logs established")
-		defer func() {
-			if err != nil {
-				if !errors.Is(err, context.Canceled) {
-					log.Warn("subscription to logs closed", "reason", err)
-				}
-			} else {
-				log.Warn("subscription to logs closed")
-			}
-		}()
-		for {
-			select {
-			case <-s.ctx.Done():
-				err = s.ctx.Err()
-				return
-			case logs := <-ch:
-				s.logsFilter.distributeLogs(logs)
-			}
-		}
-	}()
-	return s
+	return &EthBackendServer{ctx: ctx, eth: eth, events: events}
 }
 
 func (s *EthBackendServer) Version(context.Context, *emptypb.Empty) (*types2.VersionReply, error) {
@@ -144,11 +115,4 @@ func (s *EthBackendServer) NodeInfo(_ context.Context, r *remote.NodesInfoReques
 		return nil, err
 	}
 	return nodesInfo, nil
-}
-
-func (s *EthBackendServer) SubscribeLogs(server remote.ETHBACKEND_SubscribeLogsServer) (err error) {
-	if s.logsFilter != nil {
-		return s.logsFilter.subscribeLogs(server)
-	}
-	return fmt.Errorf("no logs filter available")
 }

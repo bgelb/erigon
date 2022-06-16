@@ -76,7 +76,6 @@ func setDefaults(cfg *Config) {
 			BerlinBlock:         new(big.Int),
 			LondonBlock:         new(big.Int),
 			ArrowGlacierBlock:   new(big.Int),
-			GrayGlacierBlock:    new(big.Int),
 		}
 	}
 

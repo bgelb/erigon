@@ -891,7 +891,7 @@ func (api *TraceAPIImpl) Call(ctx context.Context, args TraceCallParam, traceTyp
 		}
 		stateReader = state.NewCachedReader2(cacheView, tx)
 	} else {
-		stateReader = state.NewPlainState(tx, blockNumber)
+		stateReader = state.NewPlainState(tx, blockNumber+1)
 	}
 	ibs := state.New(stateReader)
 

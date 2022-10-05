@@ -946,7 +946,7 @@ func (api *TraceAPIImpl) Call(ctx context.Context, args TraceCallParam, traceTyp
 
 	// Increment the BlockNumber and Time values to simulate the transaction of
 	// interest in the next (N+1) block instead of the current (already mined) one
-	blockCtx.Time += 1
+	blockCtx.Time += 12
 	blockCtx.BlockNumber += 1
 
 	evm := vm.NewEVM(blockCtx, txCtx, ibs, chainConfig, vm.Config{Debug: traceTypeTrace, Tracer: &ot})
@@ -1171,7 +1171,7 @@ func (api *TraceAPIImpl) doCallMany(ctx context.Context, dbtx kv.Tx, msgs []type
 		if simNextBlock {
 			// Increment the BlockNumber and Time values to simulate the transaction of
 			// interest in the next (N+1) block instead of the current (already mined) one
-			blockCtx.Time += 1
+			blockCtx.Time += 12
 			blockCtx.BlockNumber += 1
 		}
 

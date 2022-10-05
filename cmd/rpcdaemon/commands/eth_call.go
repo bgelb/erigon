@@ -399,7 +399,7 @@ func (api *APIImpl) CreateAccessList(ctx context.Context, args ethapi.CallArgs, 
 
 		// Increment the BlockNumber and Time values to simulate the transaction of
 		// interest in the next (N+1) block instead of the current (already mined) one
-		blockCtx.Time += 1
+		blockCtx.Time += 12
 		blockCtx.BlockNumber += 1
 
 		evm := vm.NewEVM(blockCtx, txCtx, state, chainConfig, config)

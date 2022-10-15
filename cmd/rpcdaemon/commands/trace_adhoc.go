@@ -954,8 +954,6 @@ func (api *TraceAPIImpl) Call(ctx context.Context, args TraceCallParam, traceTyp
 	}
 
 	blockCtx, txCtx := transactions.GetEvmContext(msg, header, blockNrOrHash.RequireCanonical, tx, api._blockReader)
-	blockCtx.GasLimit = math.MaxUint64
-	blockCtx.MaxGasLimit = true
 
 	// Increment the BlockNumber and Time values to simulate the transaction of
 	// interest in the next (N+1) block instead of the current (already mined) one
@@ -1140,10 +1138,8 @@ func (api *TraceAPIImpl) doCallMany(ctx context.Context, dbtx kv.Tx, msgs []type
 	defer cancel()
 	results := []*TraceCallResult{}
 
-	useParent := false
 	if header == nil {
 		header = parentHeader
-		useParent = true
 	}
 
 	for txIndex, msg := range msgs {
@@ -1196,10 +1192,6 @@ func (api *TraceAPIImpl) doCallMany(ctx context.Context, dbtx kv.Tx, msgs []type
 			blockCtx.BlockNumber += 1
 		}
 
-		if useParent {
-			blockCtx.GasLimit = math.MaxUint64
-			blockCtx.MaxGasLimit = true
-		}
 		ibs := state.New(cachedReader)
 		// Create initial IntraBlockState, we will compare it with ibs (IntraBlockState after the transaction)
 

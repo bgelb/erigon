@@ -978,8 +978,6 @@ func (api *TraceAPIImpl) Call(ctx context.Context, args TraceCallParam, traceTyp
 	blockCtx := transactions.NewEVMBlockContext(engine, header, blockNrOrHash.RequireCanonical, tx, api._blockReader)
 	txCtx := core.NewEVMTxContext(msg)
 
-	blockCtx.GasLimit = math.MaxUint64
-	blockCtx.MaxGasLimit = true
 	blockCtx.L1CostFunc = types.NewL1CostFunc(chainConfig, ibs)
 
 	// Increment the BlockNumber and Time values to simulate the transaction of
@@ -1169,10 +1167,8 @@ func (api *TraceAPIImpl) doCallMany(ctx context.Context, dbtx kv.Tx, msgs []type
 	defer cancel()
 	results := []*TraceCallResult{}
 
-	useParent := false
 	if header == nil {
 		header = parentHeader
-		useParent = true
 	}
 
 	l1CostFunc := types.NewL1CostFunc(chainConfig, ibs)
@@ -1227,10 +1223,6 @@ func (api *TraceAPIImpl) doCallMany(ctx context.Context, dbtx kv.Tx, msgs []type
 			blockCtx.BlockNumber += 1
 		}
 
-		if useParent {
-			blockCtx.GasLimit = math.MaxUint64
-			blockCtx.MaxGasLimit = true
-		}
 		ibs.Reset()
 		blockCtx.L1CostFunc = l1CostFunc
 		// Create initial IntraBlockState, we will compare it with ibs (IntraBlockState after the transaction)

@@ -1148,10 +1148,8 @@ func (api *TraceAPIImpl) doCallMany(ctx context.Context, dbtx kv.Tx, msgs []type
 	defer cancel()
 	results := []*TraceCallResult{}
 
-	useParent := false
 	if header == nil {
 		header = parentHeader
-		useParent = true
 	}
 
 	for txIndex, msg := range msgs {

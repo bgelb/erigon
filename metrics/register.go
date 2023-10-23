@@ -47,7 +47,6 @@ func GetOrCreateCounter(s string, isGauge ...bool) Counter {
 	} else {
 		counter := vm.GetOrCreateCounter(s, isGauge...)
 		DefaultRegistry.Register(s, counter)
-		vm.GetDefaultSet().UnregisterMetric(s)
 		return counter
 	}
 }
@@ -71,7 +70,6 @@ func GetOrCreateSummary(s string) Summary {
 	} else {
 		summary := vm.GetOrCreateSummary(s)
 		DefaultRegistry.Register(s, summary)
-		vm.GetDefaultSet().UnregisterMetric(s)
 		return summary
 	}
 }
